@@ -255,11 +255,15 @@ class Deck(object):
     def __init__(self):
         self.max_num_cards = 52
         self.available_cards = []
+        self.dealt_cards = []
+        self.community_cards = []
+        self.burnt_cards = []
+
         for _s in SUITS:
             for _w in WORTHS:
                 self.available_cards.append(Card(worth=_w, suit=_s))
 
-    def deal_card(self):
+    def _deal_card(self):
         """
             Choose a card at random from the available cards in the deck and return it, removing it from the available
             cards in the deck.
@@ -278,6 +282,49 @@ class Deck(object):
         :rtype: int
         """
         return len(self.available_cards)
+
+    def deal_to_players(self, players):
+        for i in range(2):
+            for _player in players:
+                _card = self._deal_card()
+                _player.add_card(_card)
+                self.dealt_cards.append(_card)
+        return
+
+    def deal_flop(self, players):
+        self._burn_card()
+
+        for i in range(3):
+            _card = self._deal_card()
+            self.community_cards.append(_card)
+
+        for _player in players:
+            _player.set_community_cards(self.community_cards)
+
+    def deal_river(self, players):
+        self._burn_card()
+
+        _card = self._deal_card()
+        self.community_cards.append(_card)
+
+        for _player in players:
+            _player.set_community_cards(self.community_cards)
+
+    def deal_turn(self, players):
+        self._burn_card()
+
+        _card = self._deal_card()
+        self.community_cards.append(_card)
+
+        for _player in players:
+            _player.set_community_cards(self.community_cards)
+
+    def _burn_card(self):
+        """
+            Dealer removes a card from play.  This is known as 'burning' a card.
+        :return:
+        """
+        self.burnt_cards.append(self._deal_card())
 
 
 class Player(object):
@@ -329,60 +376,25 @@ class Player(object):
         return
 
 
-class Dealer(object):
-    def __init__(self, num_players):
-        self.deck = Deck()
-        self.community_cards = []
-
-    def deal_to_players(self, players):
-        for i in range(2):
-            for _player in players:
-                _player.add_card(self.deck.deal_card())
-        return
-
-    def deal_flop(self, players):
-        self._burn_card()
-
-        for i in range(3):
-            _card = self.deck.deal_card()
-            self.community_cards.append(_card)
-
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
-
-    def deal_river(self, players):
-        self._burn_card()
-
-        _card = self.deck.deal_card()
-        self.community_cards.append(_card)
-
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
-
-    def deal_turn(self, players):
-        self._burn_card()
-
-        _card = self.deck.deal_card()
-        self.community_cards.append(_card)
-
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
-
-    def _burn_card(self):
-        """
-            Dealer removes a card from play.  This is known as 'burning' a card.
-        :return:
-        """
-        _ = self.deck.deal_card()
-
-
 class Game(object):
     def __init__(self, num_cards_per_player=2):
         self.num_cards_per_player = num_cards_per_player
+        self.deck = Deck()
 
-    def fresh_hand(self, num_players=6):
-        hand = Hand(num_players=num_players, game=self)
+        self.players = [Player(player_num=x) for x in range(6)]
+
+    def play_hand(self):
+        pass
 
 
 if __name__ == '__main__':
     print("welcome to poker")
+    try:
+        while True:
+            pass
+    except EndGame:
+        print("Goodbye")
+    except KeyboardInterrupt:
+        print("Hard Exit")
+    except Exception as e:
+        print(f"Got a bad thing: {e}")
