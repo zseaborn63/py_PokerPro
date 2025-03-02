@@ -1,12 +1,226 @@
 import secrets
 
 # INITIAL DATA
+from copy import deepcopy
+from itertools import combinations
+
 WORTHS = (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
 SUITS = ('Clubs', 'Diamonds', 'Hearts', 'Spades')
 TOTAL_CARDS_IN_DECK = len(WORTHS) * len(SUITS)
 SINGLE_CARD_ODDS = 1 / TOTAL_CARDS_IN_DECK
 SINGLE_WORTH_ODDS = len(SUITS) / TOTAL_CARDS_IN_DECK
 SINGLE_SUIT_ODDS = len(WORTHS) / TOTAL_CARDS_IN_DECK
+
+
+class EndGame(Exception):
+    pass
+
+
+class WinningHand(object):
+    def __init__(self):
+        self.close = False
+        self.found = False
+        self.ranking = None
+        self.high_value = None
+
+    def get_sorted_cards(self, cards):
+        copy_cards = deepcopy(cards)
+        return sorted(copy_cards, key=lambda x: x.worth, reverse=True)
+
+    def check_cards(self, cards):
+        raise NotImplementedError()
+
+
+class HighCard(WinningHand):
+    def __init__(self):
+        super(HighCard, self).__init__()
+        self.ranking = 0
+
+    def check_cards(self, cards):
+        self.high_value = self.check_for_high_card(cards)
+        self.found = True
+        return self.found
+
+    def check_for_high_card(self, cards):
+        sorted_cards = self.get_sorted_cards(cards)
+        return [sorted_cards[0], ]
+
+
+class Pair(WinningHand):
+    def __init__(self):
+        super(Pair, self).__init__()
+        self.ranking = 1
+        self.num_to_match = 2
+
+    def check_cards(self, cards):
+        matched_cards = self.check_for_worth_matches(cards)
+        if matched_cards:
+            self.found = True
+            self.high_value = matched_cards
+
+        return self.found
+
+    def check_for_worth_matches(self, cards):
+        matches_found = []
+        card_values = [x.worth for x in cards]
+        if len(set(card_values)) < len(cards):
+            sorted_cards = self.get_sorted_cards(cards)
+            for _c in sorted_cards:
+                if card_values.count(_c.worth) == self.num_to_match:
+                    matches_found.append(_c)
+
+        return matches_found
+
+
+class TwoPair(Pair):
+    def __init__(self):
+        super(TwoPair, self).__init__()
+        self.ranking = 2
+
+    def check_cards(self, cards):
+        local_cards = deepcopy(cards)
+
+        pair_1 = self.check_for_worth_matches(local_cards)
+        if pair_1:
+            self.close = True
+            for _c in pair_1:
+                local_cards.remove(_c)
+            pair_2 = self.check_for_worth_matches(local_cards)
+            if pair_2:
+                self.found = True
+                self.high_value = pair_1 + pair_2
+
+        return self.found
+
+
+class ThreeOfAKind(Pair):
+    def __init__(self):
+        super(ThreeOfAKind, self).__init__()
+        self.ranking = 3
+        self.num_to_match = 3
+
+    def check_cards(self, cards):
+        found = super(ThreeOfAKind, self).check_cards(cards)
+        if not found:
+            self.num_to_match = 2
+            pair = self.check_for_worth_matches(cards)
+            if pair:
+                self.close = True
+            self.num_to_match = 3
+
+        return self.found
+
+
+class Straight(WinningHand):
+    def __init__(self):
+        super(Straight, self).__init__()
+        self.ranking = 4
+        self.num_matched = 0
+
+    def check_cards(self, cards):
+        straight_found = self.check_for_straight(cards)
+        if straight_found:
+            sorted_cards = self.get_sorted_cards(cards)
+            self.high_value = sorted_cards
+        else:
+            # new function to see how close we are to a straight
+            pass
+
+        return straight_found
+
+    def check_for_straight(self, cards):
+        # todo: check for the many possible straight conditions that can be fullfilled if one is not found
+        sorted_cards = self.get_sorted_cards(cards)
+        _prev_val = None
+        _interval = 1
+        straight_found = True
+        for _c in sorted_cards:
+            if _prev_val is None:
+                _prev_val = _c.worth
+                continue
+
+            if _c.worth != -_prev_val - _interval:
+                straight_found = False
+                break
+
+        return straight_found
+
+
+class Flush(WinningHand):
+    def __init__(self):
+        super(Flush, self).__init__()
+        self.ranking = 5
+        self.num_matched = 0
+
+    def check_cards(self, cards):
+        self.found = self.check_for_flush(cards)
+
+        if self.found:
+            self.high_value = self.get_sorted_cards(cards)
+
+        return self.found
+
+    def check_for_flush(self, cards):
+        flush_found = False
+        card_suits = [x.suit for x in cards]
+        if len(set(card_suits)) == 1:
+            flush_found = True
+        else:
+            suit_map = {}
+            for _c in cards:
+                if _c.suit not in suit_map.keys():
+                    suit_map[_c.suit] = []
+                suit_map[_c.suit].append(_c)
+            four_card_suits = [suit for suit, cards in suit_map.items() if len(cards) == 4]
+            if four_card_suits:
+                self.close = True
+                self.num_matched = 4
+                self.high_value = suit_map[four_card_suits[0]]
+            three_card_suits = [suit for suit, matches in suit_map.items() if len(matches) == 3]
+            if three_card_suits:
+                self.close = True
+                self.num_matched = 3
+                self.high_value = suit_map[three_card_suits[0]]
+
+        return flush_found
+
+
+class FullHouse(WinningHand):
+    def __init__(self):
+        super(FullHouse, self).__init__()
+        self.ranking = 6
+
+    def check_cards(self, cards):
+        pass
+
+
+class FourOfAKind(Pair):
+    def __init__(self):
+        super(FourOfAKind, self).__init__()
+        self.ranking = 7
+        self.num_to_match = 4
+
+
+class StraightFlush(Flush, Straight):
+    def __init__(self):
+        super(StraightFlush, self).__init__()
+        self.ranking = 8
+        self.is_royal = False
+
+    def check_cards(self, cards):
+        straight_flush_found = False
+        straight_found = self.check_for_straight(cards)
+        flush_found = self.check_for_flush(cards)
+        if straight_found and flush_found:
+            straight_flush_found = True
+            self.high_value = self.get_sorted_cards(cards)
+            if self.high_value[0].worth == 14:
+                self.is_royal = True
+
+        return straight_flush_found
+
+
+WINNING_HANDS = (StraightFlush, FourOfAKind, FullHouse, Flush, Straight, ThreeOfAKind, TwoPair, Pair, HighCard)
 
 
 class Card(object):
@@ -66,6 +280,55 @@ class Deck(object):
         return len(self.available_cards)
 
 
+class Player(object):
+
+    def __init__(self, player_num):
+        self.player_id = player_num
+        self.cards = []
+        self.community_cards = []
+        self.best_hand = None
+
+        self._completed_hands = []
+        self._possible_hands = []
+
+    def add_card(self, card):
+        self.cards.append(card)
+
+    def set_community_cards(self, cards):
+        self.community_cards.append(cards)
+
+    def get_card_combos(self, num_cards=5):
+        available_community_spots = num_cards - len(self.cards)
+        _community = deepcopy(self.community_cards)
+        combos_raw = combinations(_community, available_community_spots)
+        combos = [list(x) for x in combos_raw]
+        return combos
+
+    def check_cards_for_winning_hands(self):
+        player_cards = deepcopy(self.cards)
+        community_combos = self.get_card_combos()
+        for _combo in community_combos:
+            player_hand = _combo + player_cards
+            winning_hands = [x() for x in WINNING_HANDS]
+
+            for _hand in winning_hands:
+                completed = _hand.check_cards(player_hand)
+                if completed:
+                    self._completed_hands.append(_hand)
+                    if self.best_hand is None:
+                        self.best_hand = _hand
+                    else:
+                        if self.best_hand.ranking < _hand.ranking:
+                            self.best_hand = _hand
+                        elif self.best_hand.ranking == _hand.ranking:
+                            # TODO: check highest-card
+                            pass
+                else:
+                    if _hand.close:
+                        self._possible_hands.append(_hand)
+        return
+
+
 class Dealer(object):
     def __init__(self, num_players):
         self.deck = Deck()
@@ -111,6 +374,14 @@ class Dealer(object):
         :return:
         """
         _ = self.deck.deal_card()
+
+
+class Game(object):
+    def __init__(self, num_cards_per_player=2):
+        self.num_cards_per_player = num_cards_per_player
+
+    def fresh_hand(self, num_players=6):
+        hand = Hand(num_players=num_players, game=self)
 
 
 if __name__ == '__main__':
