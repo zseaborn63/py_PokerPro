@@ -27,6 +27,10 @@ class WinningHand(object):
         copy_cards = deepcopy(cards)
         return sorted(copy_cards, key=lambda x: x.worth, reverse=True)
 
+    @property
+    def high_card(self):
+        return self.high_value[0] if self.high_value is not None else None
+
     def check_cards(self, cards):
         raise NotImplementedError()
 
@@ -259,6 +263,7 @@ class Deck(object):
         self.community_cards = []
         self.burnt_cards = []
 
+        # Create the actual card instances
         for _s in SUITS:
             for _w in WORTHS:
                 self.available_cards.append(Card(worth=_w, suit=_s))
@@ -283,41 +288,32 @@ class Deck(object):
         """
         return len(self.available_cards)
 
-    def deal_to_players(self, players):
-        for i in range(2):
+    def deal_to_players(self, players, num_cards=2):
+        for i in range(num_cards):
             for _player in players:
                 _card = self._deal_card()
                 _player.add_card(_card)
                 self.dealt_cards.append(_card)
         return
 
-    def deal_flop(self, players):
+    def deal_flop(self):
         self._burn_card()
 
         for i in range(3):
             _card = self._deal_card()
             self.community_cards.append(_card)
 
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
-
-    def deal_river(self, players):
+    def deal_river(self):
         self._burn_card()
 
         _card = self._deal_card()
         self.community_cards.append(_card)
 
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
-
-    def deal_turn(self, players):
+    def deal_turn(self):
         self._burn_card()
 
         _card = self._deal_card()
         self.community_cards.append(_card)
-
-        for _player in players:
-            _player.set_community_cards(self.community_cards)
 
     def _burn_card(self):
         """
@@ -332,7 +328,6 @@ class Player(object):
     def __init__(self, player_num):
         self.player_id = player_num
         self.cards = []
-        self.community_cards = []
         self.best_hand = None
 
         self._completed_hands = []
@@ -341,19 +336,16 @@ class Player(object):
     def add_card(self, card):
         self.cards.append(card)
 
-    def set_community_cards(self, cards):
-        self.community_cards.append(cards)
-
-    def get_card_combos(self, num_cards=5):
+    def get_card_combos(self, community_cards, num_cards=5):
         available_community_spots = num_cards - len(self.cards)
-        _community = deepcopy(self.community_cards)
+        _community = deepcopy(community_cards)
         combos_raw = combinations(_community, available_community_spots)
         combos = [list(x) for x in combos_raw]
         return combos
 
-    def check_cards_for_winning_hands(self):
+    def check_cards_for_winning_hands(self, community_cards):
         player_cards = deepcopy(self.cards)
-        community_combos = self.get_card_combos()
+        community_combos = self.get_card_combos(community_cards)
         for _combo in community_combos:
             player_hand = _combo + player_cards
             winning_hands = [x() for x in WINNING_HANDS]
@@ -368,11 +360,16 @@ class Player(object):
                         if self.best_hand.ranking < _hand.ranking:
                             self.best_hand = _hand
                         elif self.best_hand.ranking == _hand.ranking:
-                            # TODO: check highest-card
-                            pass
+                            current_highest = self.best_hand.high_value[0]
+                            new_highest = _hand.high_value[0]
+                            if new_highest > current_highest:
+                                self.best_hand = _hand
                 else:
                     if _hand.close:
                         self._possible_hands.append(_hand)
+        return
+
+    def check_odds_of_hands(self):
         return
 
 
@@ -383,14 +380,44 @@ class Game(object):
 
         self.players = [Player(player_num=x) for x in range(6)]
 
+    @property
+    def community_cards(self):
+        return self.deck.community_cards
+
     def play_hand(self):
-        pass
+        self.deck.deal_to_players(self.players)
+        self.deck.deal_flop()
+        self._check_player_hands()
+        self.deck.deal_river()
+        self._check_player_hands()
+        self.deck.deal_turn()
+        self._check_player_hands()
+
+        return
+
+    def _check_player_hands(self):
+        current_leader = None
+        for _player in self.players:
+            _player.check_cards_for_winning_hands(self.community_cards)
+            if _player.best_hand is not None:
+                if current_leader is None:
+                    current_leader = _player
+                else:
+                    if _player.best_hand.ranking > current_leader.best_hand.ranking:
+                        current_leader = _player
+                    elif _player.best_hand.ranking == current_leader.best_hand.ranking:
+                        current_highest = current_leader.best_hand.high_value[0]
+                        new_highest = _player.best_hand.high_value[0]
+                        if new_highest > current_highest:
+                            current_leader = _player
+        return
 
 
 if __name__ == '__main__':
     print("welcome to poker")
     try:
         while True:
+            # TODO: get input from user (for keeping up w/ poker game for odds calculation)
             pass
     except EndGame:
         print("Goodbye")
