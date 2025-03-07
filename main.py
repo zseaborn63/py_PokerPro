@@ -1,3 +1,4 @@
+import random
 import secrets
 
 # INITIAL DATA
@@ -22,6 +23,7 @@ class WinningHand(object):
         self.found = False
         self.ranking = None
         self.high_value = None
+        self.odds = 0
 
     def get_sorted_cards(self, cards):
         copy_cards = deepcopy(cards)
@@ -30,6 +32,17 @@ class WinningHand(object):
     @property
     def high_card(self):
         return self.high_value[0] if self.high_value is not None else None
+
+    @property
+    def outs(self):
+        raise NotImplementedError()
+
+    def calculate_odds(self, num_unseen_cards, remaining_community_cards):
+        if remaining_community_cards > 0:
+             raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards) ** remaining_community_cards
+        else:
+            raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards)
+        self.odds = raw * 100
 
     def check_cards(self, cards):
         raise NotImplementedError()
@@ -96,6 +109,10 @@ class TwoPair(Pair):
 
         return self.found
 
+    @property
+    def outs(self):
+        return 2
+
 
 class ThreeOfAKind(Pair):
     def __init__(self):
@@ -110,9 +127,15 @@ class ThreeOfAKind(Pair):
             pair = self.check_for_worth_matches(cards)
             if pair:
                 self.close = True
+                self.high_value = pair
+
             self.num_to_match = 3
 
         return self.found
+
+    @property
+    def outs(self):
+        return 3 - len(self.high_value)
 
 
 class Straight(WinningHand):
@@ -188,6 +211,10 @@ class Flush(WinningHand):
 
         return flush_found
 
+    @property
+    def outs(self):
+        return 5 - len(self.high_value)
+
 
 class FullHouse(WinningHand):
     def __init__(self):
@@ -213,15 +240,32 @@ class StraightFlush(Flush, Straight):
 
     def check_cards(self, cards):
         straight_flush_found = False
-        straight_found = self.check_for_straight(cards)
+        straight_cards = []
+        flush_cards = []
+
         flush_found = self.check_for_flush(cards)
+        if self.close:
+            flush_cards = deepcopy(self.high_value)
+
+        straight_found = self.check_for_straight(cards)
+        if self.close:
+            straight_cards = deepcopy(self.high_value)
+
         if straight_found and flush_found:
             straight_flush_found = True
             self.high_value = self.get_sorted_cards(cards)
             if self.high_value[0].worth == 14:
                 self.is_royal = True
+        else:
+            if straight_cards and flush_cards:
+                self.close = True
+                self.high_value = [x for x in straight_cards if x in flush_cards]
 
         return straight_flush_found
+
+    @property
+    def outs(self):
+        return 5 - len()
 
 
 WINNING_HANDS = (StraightFlush, FourOfAKind, FullHouse, Flush, Straight, ThreeOfAKind, TwoPair, Pair, HighCard)
@@ -267,6 +311,10 @@ class Deck(object):
         for _s in SUITS:
             for _w in WORTHS:
                 self.available_cards.append(Card(worth=_w, suit=_s))
+
+        # Shuffle the cards a random number of times
+        for _ in secrets.randbelow(7):
+            random.shuffle(self.available_cards)
 
     def _deal_card(self):
         """
@@ -329,6 +377,7 @@ class Player(object):
         self.player_id = player_num
         self.cards = []
         self.best_hand = None
+        self.odds = {}
 
         self._completed_hands = []
         self._possible_hands = []
@@ -344,8 +393,13 @@ class Player(object):
         return combos
 
     def check_cards_for_winning_hands(self, community_cards):
+        # Stats vars
+        unseen = TOTAL_CARDS_IN_DECK - len(community_cards)
+        remaining_community = 5 - len(community_cards)
+
         player_cards = deepcopy(self.cards)
         community_combos = self.get_card_combos(community_cards)
+
         for _combo in community_combos:
             player_hand = _combo + player_cards
             winning_hands = [x() for x in WINNING_HANDS]
@@ -367,10 +421,13 @@ class Player(object):
                 else:
                     if _hand.close:
                         self._possible_hands.append(_hand)
+                        _hand.calculate_odds(num_unseen_cards=unseen,
+                                             remaining_community_cards=remaining_community)
+
         return
 
-    def check_odds_of_hands(self):
-        return
+# TODO:
+#  1) add class to calculate odds of getting each hand w/ full deck of cards
 
 
 class Game(object):
