@@ -327,6 +327,17 @@ class Deck(object):
         self.available_cards.remove(card)
         return card
 
+    def _find_card(self, worth, suit):
+        """"""
+        _card = None
+        for _c in self.available_cards:
+            if _c.suit == suit and _c.worth == worth:
+                _card = _c
+                break
+
+        self.available_cards.remove(_card)
+        return _card
+
     @property
     def num_cards_available(self):
         """
@@ -335,6 +346,18 @@ class Deck(object):
         :rtype: int
         """
         return len(self.available_cards)
+
+    def get_player_card(self, card_str):
+        """"""
+        suit = card_str[-1]
+        worth = card_str[:-1]
+        return self._find_card(worth=worth, suit=suit)
+
+    def set_community_card(self, card_str):
+        """"""
+        suit = card_str[-1]
+        worth = card_str[:-1]
+        return self._find_card(worth=worth, suit=suit)
 
     def deal_to_players(self, players, num_cards=2):
         for i in range(num_cards):
@@ -430,26 +453,77 @@ class Player(object):
 #  1) add class to calculate odds of getting each hand w/ full deck of cards
 
 
-class Game(object):
-    def __init__(self, num_cards_per_player=2):
+class TexasHoldEm(object):
+    def __init__(self, num_cards_per_player=2, num_players=6):
+
         self.num_cards_per_player = num_cards_per_player
         self.deck = Deck()
 
-        self.players = [Player(player_num=x) for x in range(6)]
+        # Need to define starting player:
+        self.players = self._make_players(num_players=num_players)
+        self.user_player = self.players[0].player_id
+        self.dealer = self.players[0].player_id  # FIXME:  RANDOMIZE!
+
+    def _make_players(self, num_players):
+        return [Player(player_num=x) for x in range(num_players)]
+
+    def _get_user_player(self):
+        _user = None
+        for _p in self.players:
+            if _p.player_id == self.user_player:
+                _user = _p
+                break
+        return _user
+
+    # TODO: new functions for "get odds" and "how often to win"
 
     @property
     def community_cards(self):
         return self.deck.community_cards
 
-    def play_hand(self):
+    def get_odds(self, player_cards, community_cards):
+        user_player = self._get_user_player()
+        for _cs in player_cards:
+            user_player.add_card(self.deck.get_player_card(_cs))
+
+        for _ccs in community_cards:
+            self.deck.set_community_card(_ccs)
+
+        user_player.check_cards_for_winning_hands(self.community_cards)
+        return
+
+    def play_games(self, num_games=1):
+        num_user_wins = 0
+        for _ in range(num_games):
+            winning_player = self._play_hand()
+            if winning_player == self.user_player:
+                num_user_wins += 1
+            self._end_hand()
+        return
+
+    def _play_hand(self):
         self.deck.deal_to_players(self.players)
         self.deck.deal_flop()
-        self._check_player_hands()
+        leader = self._check_player_hands()
         self.deck.deal_river()
-        self._check_player_hands()
+        leader = self._check_player_hands()
         self.deck.deal_turn()
-        self._check_player_hands()
+        leader = self._check_player_hands()
 
+        return leader.player_id
+
+    def _end_hand(self):
+        # Clear players hands
+        self.players = self._make_players(len(self.players))
+
+        # Get next dealer
+        if self.dealer + 1 > len(self.players):
+            self.dealer = self.players[0].player_id
+        else:
+            self.dealer += 1
+
+        # Fresh deck and will be shuffled and have all cards in it
+        self.deck = Deck()
         return
 
     def _check_player_hands(self):
@@ -467,14 +541,20 @@ class Game(object):
                         new_highest = _player.best_hand.high_value[0]
                         if new_highest > current_highest:
                             current_leader = _player
-        return
+        return current_leader
 
 
 if __name__ == '__main__':
     print("welcome to poker")
+    # TODO: MODES:
+    #  1): "How Often Do I Win with this hand?"
+    #  2): "What are my odds with this hand and these community cards?"
     try:
         while True:
-            # TODO: get input from user (for keeping up w/ poker game for odds calculation)
+            # TODO:
+            #  1) get input from user for num players/cards
+            #  2) New class to calculate odds; calculate and show player their odds
+            #  3) Confirm player wants to continue
             pass
     except EndGame:
         print("Goodbye")
