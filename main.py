@@ -457,9 +457,10 @@ class TexasHoldEm(object):
         self.deck = Deck()
 
         # Need to define starting player:
-        self.players = self._make_players(num_players=num_players)
-        self.user_player = self.players[0].player_id
-        self.dealer = self.players[0].player_id  # FIXME:  RANDOMIZE!
+        self.deal_players = self._make_players(num_players=num_players - 1)
+        self.user_player = self.user_player = Player(player_num=num_players)
+        self.players = [*self.deal_players, self.user_player]
+        self.dealer = self.players[0].player_id
 
     def _make_players(self, num_players):
         return [Player(player_num=x) for x in range(num_players)]
@@ -489,35 +490,71 @@ class TexasHoldEm(object):
         # TODO: rest of the odds stuff
         return
 
+    def run_monte_carlo(self, player_cards, community_cards=None, num_games=10000):
+
+        if community_cards is not None:
+            for _ccs in community_cards:
+                self.deck.set_community_card(_ccs)
+
+        for _cs in player_cards:
+            self. user_player.add_card(self.deck.get_player_card(_cs))
+
+        player_wins = {}
+        for __ in range(num_games):
+            winning_player, winning_hand = self._play_hand()
+
+            if winning_player == self.user_player:
+                if winning_hand not in player_wins.keys():
+                    player_wins[winning_hand] = 0
+                player_wins[winning_hand] += 1
+
+            self._end_hand()
+
+        # Calculate stats
+        # TODO: average; winningest hand
+        return
+
     def get_win_percentage(self, num_games=1):
         num_user_wins = 0
         for _ in range(num_games):
-            winning_player = self._play_hand()
+            winning_player, winning_hand = self._play_hand()
             if winning_player == self.user_player:
                 num_user_wins += 1
             self._end_hand()
         return
 
     def _play_hand(self):
-        self.deck.deal_to_players(self.players)
-        self.deck.deal_flop()
-        leader = self._check_player_hands()
-        self.deck.deal_river()
-        leader = self._check_player_hands()
-        self.deck.deal_turn()
+        self.deck.deal_to_players(self.deal_players)
+        if len(self.community_cards) == 0:
+            self.deck.deal_flop()
+            # leader = self._check_player_hands()
+        if len(self.community_cards) == 3:
+            self.deck.deal_river()
+            # leader = self._check_player_hands()
+        if len(self.community_cards) == 4:
+            self.deck.deal_turn()
         leader = self._check_player_hands()
 
-        return leader.player_id
+        return leader.player_id, leader.best_hand.name
 
     def _end_hand(self):
         # Clear players hands
-        self.players = self._make_players(len(self.players))
+        self.user_player.best_hand = None
+        self.user_player._possible_hands = []
+        self.user_player._completed_hands = []
+        self.deal_players = []
+        for player in self.deal_players:
+            player.best_hand = None
+            player.cards = []
+            player._completed_hands = []
+            player._possible_hands = []
 
         # Get next dealer
         if self.dealer + 1 > len(self.players):
             self.dealer = self.players[0].player_id
         else:
             self.dealer += 1
+        # TODO: remake list from new dealer perspective
 
         # Fresh deck and will be shuffled and have all cards in it
         self.deck = Deck()
@@ -550,16 +587,14 @@ def test_odds():
 
 if __name__ == '__main__':
     print("welcome to poker")
-    # TODO: MODES:
-    #  1): "How Often Do I Win with this hand?"
-    #  2): "What are my odds with this hand and these community cards?"
+    # TODO:
+    #  1): Full-conversion to Monte Carlo only
+    #  2): setup input collections
+    #  3): winning hand count capture
+    #  3): setup & implement logging results
     try:
-        while True:
-            # TODO:
-            #  1) get input from user for num players/cards
-            #  2) New class to calculate odds; calculate and show player their odds
-            #  3) Confirm player wants to continue
-            pass
+        hold_em = TexasHoldEm()
+
     except EndGame:
         print("Goodbye")
     except KeyboardInterrupt:
