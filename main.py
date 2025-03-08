@@ -523,7 +523,7 @@ class TexasHoldEm(object):
 
             winning_player, winning_hand = self._play_hand()
 
-            if winning_player == self.user_player:
+            if winning_player == self.user_player.player_id:
                 if winning_hand not in player_wins.keys():
                     player_wins[winning_hand] = 0
                 player_wins[winning_hand] += 1
