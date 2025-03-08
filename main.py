@@ -449,9 +449,6 @@ class Player(object):
 
         return
 
-# TODO:
-#  1) add class to calculate odds of getting each hand w/ full deck of cards
-
 
 class TexasHoldEm(object):
     def __init__(self, num_cards_per_player=2, num_players=6):
@@ -475,8 +472,6 @@ class TexasHoldEm(object):
                 break
         return _user
 
-    # TODO: new functions for "get odds" and "how often to win"
-
     @property
     def community_cards(self):
         return self.deck.community_cards
@@ -490,9 +485,11 @@ class TexasHoldEm(object):
             self.deck.set_community_card(_ccs)
 
         user_player.check_cards_for_winning_hands(self.community_cards)
+
+        # TODO: rest of the odds stuff
         return
 
-    def play_games(self, num_games=1):
+    def get_win_percentage(self, num_games=1):
         num_user_wins = 0
         for _ in range(num_games):
             winning_player = self._play_hand()
@@ -542,6 +539,13 @@ class TexasHoldEm(object):
                         if new_highest > current_highest:
                             current_leader = _player
         return current_leader
+
+
+def test_player_wins():
+    pass
+
+def test_odds():
+    pass
 
 
 if __name__ == '__main__':
