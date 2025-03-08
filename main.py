@@ -302,7 +302,18 @@ class StraightFlush(Flush, Straight):
         return 5 - len(self.high_value)
 
 
-WINNING_HANDS = (StraightFlush, FourOfAKind, FullHouse, Flush, Straight, ThreeOfAKind, TwoPair, Pair, HighCard)
+# In order so once we can check if it's the best hand more efficiently
+WINNING_HANDS = (
+    StraightFlush,
+    FourOfAKind,
+    FullHouse,
+    Flush,
+    Straight,
+    ThreeOfAKind,
+    TwoPair,
+    Pair,
+    HighCard,
+)
 
 
 class Card(object):
@@ -477,11 +488,12 @@ class Player(object):
                             new_highest = _hand.high_value[0].worth
                             if new_highest > current_highest:
                                 self.best_hand = _hand
-                else:
-                    if _hand.close:
-                        self._possible_hands.append(_hand)
-                        _hand.calculate_odds(num_unseen_cards=unseen,
-                                             remaining_community_cards=remaining_community)
+                                break
+                # else:
+                #     if _hand.close:
+                #         self._possible_hands.append(_hand)
+                #         _hand.calculate_odds(num_unseen_cards=unseen,
+                #                              remaining_community_cards=remaining_community)
 
         return
 
