@@ -331,7 +331,7 @@ class Deck(object):
                 self.available_cards.append(Card(worth=_w, suit=_s))
 
         # Shuffle the cards a random number of times
-        for _ in secrets.randbelow(7):
+        for _ in range(secrets.randbelow(7)):
             random.shuffle(self.available_cards)
 
     def _deal_card(self):
@@ -347,12 +347,13 @@ class Deck(object):
 
     def _find_card(self, worth, suit):
         """"""
+        print(f"Checking for {worth} of {suit}")
         _card = None
         for _c in self.available_cards:
-            if _c.suit == suit and _c.worth == worth:
+            if _c.suit[0].lower() == suit and _c.worth == worth:
                 _card = _c
                 break
-
+        print(f"found: {_card}")
         self.available_cards.remove(_card)
         return _card
 
@@ -368,13 +369,13 @@ class Deck(object):
     def get_player_card(self, card_str):
         """"""
         suit = card_str[-1]
-        worth = card_str[:-1]
+        worth = int(card_str[:-1])
         return self._find_card(worth=worth, suit=suit)
 
     def set_community_card(self, card_str):
         """"""
         suit = card_str[-1]
-        worth = card_str[:-1]
+        worth = int(card_str[:-1])
         return self._find_card(worth=worth, suit=suit)
 
     def deal_to_players(self, players, num_cards=2):
@@ -536,8 +537,8 @@ class TexasHoldEm(object):
         for i in range(3):
             wins.append(list(player_wins.keys())[list(player_wins.values()).index(sorted_win_counts[i])])
 
-        msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{'\n\t'.join(wins)}"
-        return msg
+        _msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{'\n\t'.join(wins)}"
+        return _msg
 
     def get_win_percentage(self, num_games=1):
         num_user_wins = 0
@@ -619,32 +620,34 @@ def sanitize_card_string_input(card_string_input):
 
 if __name__ == '__main__':
     print("welcome to poker")
-    num_players = int(input("How many players, including yourself, are in the game? "))
-    if num_players == 99:
+    num_players_input = int(input("How many players, including yourself, are in the game? "))
+    if num_players_input == 99:
         # Run the test
+        test_monte_carlo()
         exit(0)
-    else:
-        print("We need to know the cards you were dealt.  Please enter them in the format of <Card><Suit> with both being 1 character each.  So if you were dealt the 7 of Clubs and the Jack of Spades, those would be '7c' and 'Js' respectively.  ")
-
-        card_1 = sanitize_card_string_input(input("Please enter your first card: "))
-        card_2 = sanitize_card_string_input(input("Please enter your second card: "))
-        player_cards = [card_1.lower(), card_2.lower()]
-
-        print("If there are any community cards please enter them one by one; enter 'N' if done or None")
-        comm_cards = []
-        while True:
-            comm_card = input("Any Community Cards? ")
-            if comm_card.lower() == 'N':
-                break
-
-            comm_cards.append(sanitize_card_string_input(comm_card))
 
     try:
         # NEED: 1: Num Players (lim of 8); 2: Player's Cards; 3: Any Community Cards?
         while True:
-            hold_em = TexasHoldEm()
-            community_cards = deepcopy(comm_cards) if comm_cards else None
-            msg = hold_em.run_monte_carlo(player_cards=deepcopy(player_cards), community_cards=community_cards)
+            print(
+                "We need to know the cards you were dealt.  Please enter them in the format of <Card><Suit> with both being 1 character each.  So if you were dealt the 7 of Clubs and the Jack of Spades, those would be '7c' and 'Js' respectively.  ")
+
+            card_1 = sanitize_card_string_input(input("Please enter your first card: "))
+            card_2 = sanitize_card_string_input(input("Please enter your second card: "))
+            _player_cards = [card_1.lower(), card_2.lower()]
+
+            print("If there are any community cards please enter them one by one; enter 'N' if done or None")
+            comm_cards = []
+            while True:
+                comm_card = input("Any Community Cards? ")
+                if comm_card.lower() == 'n':
+                    break
+
+                comm_cards.append(sanitize_card_string_input(comm_card))
+
+            hold_em = TexasHoldEm(num_players=num_players_input)
+            _community_cards = deepcopy(comm_cards) if comm_cards else None
+            msg = hold_em.run_monte_carlo(player_cards=deepcopy(_player_cards), community_cards=_community_cards)
             print(msg)
 
             play_again = input("Would you like to play again? (Y/N) ")
