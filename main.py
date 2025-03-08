@@ -578,7 +578,13 @@ class TexasHoldEm(object):
 
 def test_monte_carlo():
     # TODO: should test royal flush to ensure its 100% and only Straight Flush returned for wins.
-    pass
+    print("MONTE CARLO TEST!!!")
+    holdem = TexasHoldEm(num_players=2)
+    _pcs = ['14s', '13s']
+    _ccs = ['12s', '11s', '10s', ]
+
+    _msg = holdem.run_monte_carlo(player_cards=_pcs, community_cards=_ccs)
+    print(_msg)
 
 def sanitize_card_string_input(card_string_input):
     card_string = deepcopy(card_string_input.lower())
