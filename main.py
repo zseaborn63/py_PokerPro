@@ -177,9 +177,11 @@ class Straight(WinningHand):
                 _prev_val = _c.worth
                 continue
 
-            if _c.worth != -_prev_val - _interval:
+            if _c.worth != _prev_val - _interval:
                 straight_found = False
                 break
+
+            _prev_val = _c.worth
 
         return straight_found
 
@@ -273,6 +275,7 @@ class StraightFlush(Flush, Straight):
             if self.high_value[0].worth == 14:
                 self.is_royal = True
                 self.ranking += 1
+                self.name = "Royal Flush"
 
         else:
             if straight_cards and flush_cards:
@@ -455,8 +458,8 @@ class Player(object):
                         if self.best_hand.ranking < _hand.ranking:
                             self.best_hand = _hand
                         elif self.best_hand.ranking == _hand.ranking:
-                            current_highest = self.best_hand.high_value[0]
-                            new_highest = _hand.high_value[0]
+                            current_highest = self.best_hand.high_value[0].worth
+                            new_highest = _hand.high_value[0].worth
                             if new_highest > current_highest:
                                 self.best_hand = _hand
                 else:
