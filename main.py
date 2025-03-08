@@ -587,17 +587,46 @@ def test_odds():
 
 if __name__ == '__main__':
     print("welcome to poker")
-    # TODO:
-    #  1): Full-conversion to Monte Carlo only
-    #  2): setup input collections
-    #  3): winning hand count capture
-    #  3): setup & implement logging results
+    num_players = int(input("How many players, including yourself, are in the game? "))
+    if num_players == 99:
+        # Run the test
+        exit(0)
+    else:
+        print("We need to know the cards you were dealt.  Please enter them in the format of <Card><Suit> with both being 1 character each.  So if you were dealt the 7 of Clubs and the Jack of Spades, those would be '7c' and 'Js' respectively.  ")
+
+        card_1 = sanitize_card_string_input(input("Please enter your first card: "))
+        card_2 = sanitize_card_string_input(input("Please enter your second card: "))
+        player_cards = [card_1.lower(), card_2.lower()]
+
+        print("If there are any community cards please enter them one by one; enter 'N' if done or None")
+        comm_cards = []
+        while True:
+            comm_card = input("Any Community Cards? ")
+            if comm_card.lower() == 'N':
+                break
+
+            comm_cards.append(sanitize_card_string_input(comm_card))
+
     try:
-        hold_em = TexasHoldEm()
+        # NEED: 1: Num Players (lim of 8); 2: Player's Cards; 3: Any Community Cards?
+        while True:
+            hold_em = TexasHoldEm()
+            community_cards = deepcopy(comm_cards) if comm_cards else None
+            msg = hold_em.run_monte_carlo(player_cards=deepcopy(player_cards), community_cards=community_cards)
+            print(msg)
+
+            play_again = input("Would you like to play again? (Y/N) ")
+            # Ask to play again
+            if play_again.lower() != 'Y':
+                raise EndGame("blah blah")
+
 
     except EndGame:
-        print("Goodbye")
+        print("Thanks for stopping by! Goodbye")
+        exit(0)
     except KeyboardInterrupt:
         print("Hard Exit")
+        exit(0)
     except Exception as e:
         print(f"Got a bad thing: {e}")
+        exit(1)
