@@ -253,7 +253,6 @@ class FullHouse(Pair):
         return self.found
 
 
-
 class FourOfAKind(Pair):
     def __init__(self):
         super(FourOfAKind, self).__init__()
@@ -607,10 +606,21 @@ def test_monte_carlo():
     # TODO: should test royal flush to ensure its 100% and only Straight Flush returned for wins.
     print("MONTE CARLO TEST!!!")
     holdem = TexasHoldEm(num_players=2)
-    _pcs = ['14s', '13s']
-    _ccs = ['12s', '11s', '10s', ]
 
+    _pcs = ['14s', '8c', ]
+    # _ccs = ['13s', '13c', '8c']
+    _ccs = None
+
+    # Confirm that when a Royal Flush is guaranteed the correct words appear in the returned message.
+    # _pcs = ['14s', '13s']
+    # _ccs = ['12s', '11s', '10s', ]
     _msg = holdem.run_monte_carlo(player_cards=_pcs, community_cards=_ccs)
+    if not "100.00%" in _msg:
+        print("Royal Flush Test:  Failed. Incorrect calculations somewhere")
+    elif not "Royal Flush" in _msg:
+        print("Royal Flush Test:  Failed. Hand Type missing")
+    else:
+        print("Royal Flush Test:  Passed")
     print(_msg)
 
 def sanitize_card_string_input(card_string_input):
