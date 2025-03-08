@@ -94,7 +94,8 @@ class Pair(WinningHand):
                 if card_values.count(_c.worth) == self.num_to_match:
                     matches_found.append(_c)
 
-        return matches_found
+        single_pair = matches_found[:2]
+        return single_pair
 
 
 class TwoPair(Pair):
@@ -109,9 +110,9 @@ class TwoPair(Pair):
         pair_1 = self.check_for_worth_matches(local_cards)
         if pair_1:
             self.close = True
-            for _c in pair_1:
-                local_cards.remove(_c)
-            pair_2 = self.check_for_worth_matches(local_cards)
+            _checks = [(a.worth, a.suit) for a in pair_1]
+            new_cards = [x for x in deepcopy(local_cards) if (x.worth, x.suit) not in _checks]
+            pair_2 = self.check_for_worth_matches(new_cards)
             if pair_2:
                 self.found = True
                 self.high_value = pair_1 + pair_2
@@ -230,15 +231,27 @@ class Flush(WinningHand):
         return 5 - len(self.high_value)
 
 
-# TODO: THIS!!!!
-class FullHouse(WinningHand):
+class FullHouse(Pair):
     def __init__(self):
         super(FullHouse, self).__init__()
         self.name = "Full House"
         self.ranking = 6
 
     def check_cards(self, cards):
-        pass
+        local_cards = deepcopy(cards)
+        self.num_to_match = 3
+        three_found = self.check_for_worth_matches(local_cards)
+        if three_found:
+            _checks = [(a.worth, a.suit) for a in three_found]
+            new_cards = [x for x in deepcopy(cards) if (x.worth, x.suit) not in _checks]
+            self.num_to_match = 2
+            pair = self.check_for_worth_matches(new_cards)
+            if pair:
+                self.found = True
+                self.high_value = pair + three_found
+
+        return self.found
+
 
 
 class FourOfAKind(Pair):
@@ -454,9 +467,11 @@ class Player(object):
                     self._completed_hands.append(_hand)
                     if self.best_hand is None:
                         self.best_hand = _hand
+                        break
                     else:
                         if self.best_hand.ranking < _hand.ranking:
                             self.best_hand = _hand
+                            break
                         elif self.best_hand.ranking == _hand.ranking:
                             current_highest = self.best_hand.high_value[0].worth
                             new_highest = _hand.high_value[0].worth
