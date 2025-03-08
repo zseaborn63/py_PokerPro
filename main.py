@@ -491,16 +491,15 @@ class TexasHoldEm(object):
         return
 
     def run_monte_carlo(self, player_cards, community_cards=None, num_games=10000):
-
-        if community_cards is not None:
-            for _ccs in community_cards:
-                self.deck.set_community_card(_ccs)
-
-        for _cs in player_cards:
-            self. user_player.add_card(self.deck.get_player_card(_cs))
-
         player_wins = {}
         for __ in range(num_games):
+            if community_cards is not None:
+                for _ccs in community_cards:
+                    self.deck.set_community_card(_ccs)
+
+            for _cs in player_cards:
+                self.user_player.add_card(self.deck.get_player_card(_cs))
+
             winning_player, winning_hand = self._play_hand()
 
             if winning_player == self.user_player:
@@ -512,7 +511,15 @@ class TexasHoldEm(object):
 
         # Calculate stats
         # TODO: average; winningest hand
-        return
+        total_player_wins = sum(player_wins.values())
+        player_win_average = total_player_wins / num_games
+        sorted_win_counts = sorted(list(player_wins.values()))
+        wins = []
+        for i in range(3):
+            wins.append(list(player_wins.keys())[list(player_wins.values()).index(sorted_win_counts[i])])
+
+        msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{'\n\t'.join(wins)}"
+        return msg
 
     def get_win_percentage(self, num_games=1):
         num_user_wins = 0
@@ -539,11 +546,7 @@ class TexasHoldEm(object):
 
     def _end_hand(self):
         # Clear players hands
-        self.user_player.best_hand = None
-        self.user_player._possible_hands = []
-        self.user_player._completed_hands = []
-        self.deal_players = []
-        for player in self.deal_players:
+        for player in self.players:
             player.best_hand = None
             player.cards = []
             player._completed_hands = []
@@ -578,11 +581,22 @@ class TexasHoldEm(object):
         return current_leader
 
 
-def test_player_wins():
+def test_monte_carlo():
+    # TODO: should test royal flush to ensure its 100% and only Straight Flush returned for wins.
     pass
 
-def test_odds():
-    pass
+def sanitize_card_string_input(card_string_input):
+    card_string = deepcopy(card_string_input.lower())
+    if 'j' in card_string:
+        card_string.replace('j', '11')
+    elif 'q' in card_string:
+        card_string.replace('q', '12')
+    elif 'k' in card_string:
+        card_string.replace('k', '13')
+    elif 'a' in card_string:
+        card_string.replace('a', '14')
+
+    return card_string
 
 
 if __name__ == '__main__':
