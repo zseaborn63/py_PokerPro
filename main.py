@@ -347,13 +347,11 @@ class Deck(object):
 
     def _find_card(self, worth, suit):
         """"""
-        print(f"Checking for {worth} of {suit}")
         _card = None
         for _c in self.available_cards:
             if _c.suit[0].lower() == suit and _c.worth == worth:
                 _card = _c
                 break
-        print(f"found: {_card}")
         self.available_cards.remove(_card)
         return _card
 
@@ -376,7 +374,8 @@ class Deck(object):
         """"""
         suit = card_str[-1]
         worth = int(card_str[:-1])
-        return self._find_card(worth=worth, suit=suit)
+        self.community_cards.append(self._find_card(worth=worth, suit=suit))
+        return
 
     def deal_to_players(self, players, num_cards=2):
         for i in range(num_cards):
@@ -477,37 +476,10 @@ class TexasHoldEm(object):
 
         # Need to define starting player:
         self.deal_players = self._make_players(num_players=num_players - 1)
-        self.user_player = self.user_player = Player(player_num=num_players)
+        self.user_player = self.user_player = Player(player_num=num_players-1)
         self.players = [*self.deal_players, self.user_player]
         self.dealer = self.players[0].player_id
 
-    def _make_players(self, num_players):
-        return [Player(player_num=x) for x in range(num_players)]
-
-    def _get_user_player(self):
-        _user = None
-        for _p in self.players:
-            if _p.player_id == self.user_player:
-                _user = _p
-                break
-        return _user
-
-    @property
-    def community_cards(self):
-        return self.deck.community_cards
-
-    def get_odds(self, player_cards, community_cards):
-        user_player = self._get_user_player()
-        for _cs in player_cards:
-            user_player.add_card(self.deck.get_player_card(_cs))
-
-        for _ccs in community_cards:
-            self.deck.set_community_card(_ccs)
-
-        user_player.check_cards_for_winning_hands(self.community_cards)
-
-        # TODO: rest of the odds stuff
-        return
 
     def run_monte_carlo(self, player_cards, community_cards=None, num_games=10000):
         player_wins = {}
@@ -533,21 +505,22 @@ class TexasHoldEm(object):
         total_player_wins = sum(player_wins.values())
         player_win_average = total_player_wins / num_games
         sorted_win_counts = sorted(list(player_wins.values()))
+        win_range = 3 if len(sorted_win_counts) >= 3 else len(sorted_win_counts)
         wins = []
-        for i in range(3):
-            wins.append(list(player_wins.keys())[list(player_wins.values()).index(sorted_win_counts[i])])
+        if sorted_win_counts:
+            for i in range(win_range):
+                wins.append(list(player_wins.keys())[list(player_wins.values()).index(sorted_win_counts[i])])
+
 
         _msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{'\n\t'.join(wins)}"
         return _msg
 
-    def get_win_percentage(self, num_games=1):
-        num_user_wins = 0
-        for _ in range(num_games):
-            winning_player, winning_hand = self._play_hand()
-            if winning_player == self.user_player:
-                num_user_wins += 1
-            self._end_hand()
-        return
+    @property
+    def community_cards(self):
+        return self.deck.community_cards
+
+    def _make_players(self, num_players):
+        return [Player(player_num=x) for x in range(num_players)]
 
     def _play_hand(self):
         self.deck.deal_to_players(self.deal_players)
@@ -555,10 +528,10 @@ class TexasHoldEm(object):
             self.deck.deal_flop()
             # leader = self._check_player_hands()
         if len(self.community_cards) == 3:
-            self.deck.deal_river()
+            self.deck.deal_turn()
             # leader = self._check_player_hands()
         if len(self.community_cards) == 4:
-            self.deck.deal_turn()
+            self.deck.deal_river()
         leader = self._check_player_hands()
 
         return leader.player_id, leader.best_hand.name
@@ -593,8 +566,8 @@ class TexasHoldEm(object):
                     if _player.best_hand.ranking > current_leader.best_hand.ranking:
                         current_leader = _player
                     elif _player.best_hand.ranking == current_leader.best_hand.ranking:
-                        current_highest = current_leader.best_hand.high_value[0]
-                        new_highest = _player.best_hand.high_value[0]
+                        current_highest = current_leader.best_hand.high_value[0].worth
+                        new_highest = _player.best_hand.high_value[0].worth
                         if new_highest > current_highest:
                             current_leader = _player
         return current_leader
