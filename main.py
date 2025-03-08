@@ -19,6 +19,7 @@ class EndGame(Exception):
 
 class WinningHand(object):
     def __init__(self):
+        self.name = None
         self.close = False
         self.found = False
         self.ranking = None
@@ -31,6 +32,11 @@ class WinningHand(object):
 
     @property
     def high_card(self):
+        """
+            Represents the highest-worth card in the hand (high-value).
+        :return: Highest card in the hand
+        :rtype: Card
+        """
         return self.high_value[0] if self.high_value is not None else None
 
     @property
@@ -51,6 +57,7 @@ class WinningHand(object):
 class HighCard(WinningHand):
     def __init__(self):
         super(HighCard, self).__init__()
+        self.name = "High Card"
         self.ranking = 0
 
     def check_cards(self, cards):
@@ -66,6 +73,7 @@ class HighCard(WinningHand):
 class Pair(WinningHand):
     def __init__(self):
         super(Pair, self).__init__()
+        self.name = "Pair"
         self.ranking = 1
         self.num_to_match = 2
 
@@ -92,6 +100,7 @@ class Pair(WinningHand):
 class TwoPair(Pair):
     def __init__(self):
         super(TwoPair, self).__init__()
+        self.name = "Two Pair"
         self.ranking = 2
 
     def check_cards(self, cards):
@@ -117,6 +126,7 @@ class TwoPair(Pair):
 class ThreeOfAKind(Pair):
     def __init__(self):
         super(ThreeOfAKind, self).__init__()
+        self.name = "Three of a Kind"
         self.ranking = 3
         self.num_to_match = 3
 
@@ -141,6 +151,7 @@ class ThreeOfAKind(Pair):
 class Straight(WinningHand):
     def __init__(self):
         super(Straight, self).__init__()
+        self.name = "Straight"
         self.ranking = 4
         self.num_matched = 0
 
@@ -176,6 +187,7 @@ class Straight(WinningHand):
 class Flush(WinningHand):
     def __init__(self):
         super(Flush, self).__init__()
+        self.name = "Flush"
         self.ranking = 5
         self.num_matched = 0
 
@@ -216,9 +228,11 @@ class Flush(WinningHand):
         return 5 - len(self.high_value)
 
 
+# TODO: THIS!!!!
 class FullHouse(WinningHand):
     def __init__(self):
         super(FullHouse, self).__init__()
+        self.name = "Full House"
         self.ranking = 6
 
     def check_cards(self, cards):
@@ -228,6 +242,7 @@ class FullHouse(WinningHand):
 class FourOfAKind(Pair):
     def __init__(self):
         super(FourOfAKind, self).__init__()
+        self.name = "Four of a Kind"
         self.ranking = 7
         self.num_to_match = 4
 
@@ -235,6 +250,7 @@ class FourOfAKind(Pair):
 class StraightFlush(Flush, Straight):
     def __init__(self):
         super(StraightFlush, self).__init__()
+        self.name = "Straight Flush"
         self.ranking = 8
         self.is_royal = False
 
@@ -256,6 +272,8 @@ class StraightFlush(Flush, Straight):
             self.high_value = self.get_sorted_cards(cards)
             if self.high_value[0].worth == 14:
                 self.is_royal = True
+                self.ranking += 1
+
         else:
             if straight_cards and flush_cards:
                 self.close = True
@@ -265,7 +283,7 @@ class StraightFlush(Flush, Straight):
 
     @property
     def outs(self):
-        return 5 - len()
+        return 5 - len(self.high_value)
 
 
 WINNING_HANDS = (StraightFlush, FourOfAKind, FullHouse, Flush, Straight, ThreeOfAKind, TwoPair, Pair, HighCard)
