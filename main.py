@@ -513,6 +513,7 @@ class TexasHoldEm(object):
     def run_monte_carlo(self, player_cards, community_cards=None, num_games=10000):
         player_wins = {}
         for __ in range(num_games):
+            print(f"Running Game #{__}...")
             if community_cards is not None:
                 for _ccs in community_cards:
                     self.deck.set_community_card(_ccs)
