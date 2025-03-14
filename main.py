@@ -6,10 +6,6 @@ from itertools import combinations
 
 WORTHS = (2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
 SUITS = ('Clubs', 'Diamonds', 'Hearts', 'Spades')
-TOTAL_CARDS_IN_DECK = len(WORTHS) * len(SUITS)
-SINGLE_CARD_ODDS = 1 / TOTAL_CARDS_IN_DECK
-SINGLE_WORTH_ODDS = len(SUITS) / TOTAL_CARDS_IN_DECK
-SINGLE_SUIT_ODDS = len(WORTHS) / TOTAL_CARDS_IN_DECK
 
 
 class EndGame(Exception):
@@ -22,9 +18,6 @@ class WinningHand(object):
         self.found = False  # boolean indicating if the hand has been found
         self.ranking = None  # integer indicating the 'rank' of the hand; higher is better
         self.high_value = None  # list of Cards that are the highest value cards meeting the criteria
-
-        # self.close = False
-        # self.odds = 0
 
     def get_sorted_cards(self, cards):
         """
@@ -56,17 +49,6 @@ class WinningHand(object):
         :rtype: bool
         """
         raise NotImplementedError()
-
-    # @property
-    # def outs(self):
-    #     raise NotImplementedError()
-    #
-    # def calculate_odds(self, num_unseen_cards, remaining_community_cards):
-    #     if remaining_community_cards > 0:
-    #          raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards) ** remaining_community_cards
-    #     else:
-    #         raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards)
-    #     self.odds = raw * 100
 
 
 class HighCard(WinningHand):
@@ -130,7 +112,6 @@ class TwoPair(Pair):
 
         pair_1 = self.check_for_worth_matches(local_cards)
         if pair_1:
-            self.close = True
             _checks = [(a.worth, a.suit) for a in pair_1]
             new_cards = [x for x in deepcopy(local_cards) if (x.worth, x.suit) not in _checks]
             pair_2 = self.check_for_worth_matches(new_cards)
@@ -140,10 +121,6 @@ class TwoPair(Pair):
 
         return self.found
 
-    # @property
-    # def outs(self):
-    #     return 2
-
 
 class ThreeOfAKind(Pair):
     def __init__(self):
@@ -151,23 +128,6 @@ class ThreeOfAKind(Pair):
         self.name = "Three of a Kind"
         self.ranking = 3
         self.num_to_match = 3
-
-    def check_cards(self, cards):
-        found = super(ThreeOfAKind, self).check_cards(cards)
-        if not found:
-            self.num_to_match = 2
-            pair = self.check_for_worth_matches(cards)
-            if pair:
-                self.close = True
-                self.high_value = pair
-
-            self.num_to_match = 3
-
-        return self.found
-
-    # @property
-    # def outs(self):
-    #     return 3 - len(self.high_value)
 
 
 class Straight(WinningHand):
@@ -180,13 +140,11 @@ class Straight(WinningHand):
     def check_cards(self, cards):
         straight_found = self.check_for_straight(cards)
         if straight_found:
+            self.found = straight_found
             sorted_cards = self.get_sorted_cards(cards)
             self.high_value = sorted_cards
-        # else:
-        #     # new function to see how close we are to a straight
-        #     pass
 
-        return straight_found
+        return self.found
 
     def check_for_straight(self, cards):
         """
@@ -239,28 +197,8 @@ class Flush(WinningHand):
         card_suits = [x.suit for x in cards]
         if len(set(card_suits)) == 1:
             flush_found = True
-        # else:
-        #     suit_map = {}
-        #     for _c in cards:
-        #         if _c.suit not in suit_map.keys():
-        #             suit_map[_c.suit] = []
-        #         suit_map[_c.suit].append(_c)
-        #     four_card_suits = [suit for suit, cards in suit_map.items() if len(cards) == 4]
-        #     if four_card_suits:
-        #         self.close = True
-        #         self.num_matched = 4
-        #         self.high_value = suit_map[four_card_suits[0]]
-        #     three_card_suits = [suit for suit, matches in suit_map.items() if len(matches) == 3]
-        #     if three_card_suits:
-        #         self.close = True
-        #         self.num_matched = 3
-        #         self.high_value = suit_map[three_card_suits[0]]
 
         return flush_found
-
-    @property
-    def outs(self):
-        return 5 - len(self.high_value)
 
 
 class FullHouse(Pair):
@@ -301,36 +239,19 @@ class StraightFlush(Flush, Straight):
         self.is_royal = False
 
     def check_cards(self, cards):
-        straight_flush_found = False
-        straight_cards = []
-        flush_cards = []
-
         flush_found = self.check_for_flush(cards)
-        # if self.close:
-        #     flush_cards = deepcopy(self.high_value)
 
         straight_found = self.check_for_straight(cards)
-        # if self.close:
-        #     straight_cards = deepcopy(self.high_value)
 
         if straight_found and flush_found:
-            straight_flush_found = True
+            self.found = True
             self.high_value = self.get_sorted_cards(cards)
             if self.high_value[0].worth == 14:
                 self.is_royal = True
                 self.ranking += 1
                 self.name = "Royal Flush"
 
-        # else:
-        #     if straight_cards and flush_cards:
-        #         self.close = True
-        #         self.high_value = [x for x in straight_cards if x in flush_cards]
-
-        return straight_flush_found
-
-    # @property
-    # def outs(self):
-    #     return 5 - len(self.high_value)
+        return self.found
 
 
 # In order so once we can check if it's the best hand more efficiently
@@ -543,9 +464,6 @@ class Player(object):
         :param list[Card] community_cards: list of community Cards available to the player
         :return: N/A
         """
-        # Stats vars
-        unseen = TOTAL_CARDS_IN_DECK - len(community_cards)
-        remaining_community = 5 - len(community_cards)
 
         player_cards = deepcopy(self.cards)
         community_combos = self.get_card_combos(community_cards)
@@ -571,11 +489,6 @@ class Player(object):
                             if new_highest > current_highest:
                                 self.best_hand = _hand
                                 break
-                # else:
-                #     if _hand.close:
-                #         self._possible_hands.append(_hand)
-                #         _hand.calculate_odds(num_unseen_cards=unseen,
-                #                              remaining_community_cards=remaining_community)
 
 
 class TexasHoldEm(object):
@@ -661,15 +574,14 @@ class TexasHoldEm(object):
         self.deck.deal_to_players(self.deal_players)
         if len(self.community_cards) == 0:
             self.deck.deal_flop()
-            # leader = self._check_player_hands()
         if len(self.community_cards) == 3:
             self.deck.deal_turn()
-            # leader = self._check_player_hands()
         if len(self.community_cards) == 4:
             self.deck.deal_river()
-        leader = self._check_player_hands()
 
-        return leader.player_id, leader.best_hand.name
+        winner = self._check_player_hands()
+
+        return winner.player_id, winner.best_hand.name
 
     def _end_hand(self):
         """
