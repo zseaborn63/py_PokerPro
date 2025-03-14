@@ -1,7 +1,6 @@
 import random
 import secrets
 
-# INITIAL DATA
 from copy import deepcopy
 from itertools import combinations
 
@@ -19,14 +18,21 @@ class EndGame(Exception):
 
 class WinningHand(object):
     def __init__(self):
-        self.name = None
-        self.close = False
-        self.found = False
-        self.ranking = None
-        self.high_value = None
-        self.odds = 0
+        self.name = None  # readable name string used for printing data
+        self.found = False  # boolean indicating if the hand has been found
+        self.ranking = None  # integer indicating the 'rank' of the hand; higher is better
+        self.high_value = None  # list of Cards that are the highest value cards meeting the criteria
+
+        # self.close = False
+        # self.odds = 0
 
     def get_sorted_cards(self, cards):
+        """
+            Return a sorted list, highest-value card to lowest-value card, from the passed-in list of cards.
+        :param list[Card] cards: list of Cards to be sorted
+        :return: Descending-sorted list of the given cards
+        :rtype: list[Card]
+        """
         copy_cards = deepcopy(cards)
         return sorted(copy_cards, key=lambda x: x.worth, reverse=True)
 
@@ -39,19 +45,28 @@ class WinningHand(object):
         """
         return self.high_value[0] if self.high_value is not None else None
 
-    @property
-    def outs(self):
-        raise NotImplementedError()
-
-    def calculate_odds(self, num_unseen_cards, remaining_community_cards):
-        if remaining_community_cards > 0:
-             raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards) ** remaining_community_cards
-        else:
-            raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards)
-        self.odds = raw * 100
-
     def check_cards(self, cards):
+        """
+            Determine if the given cards match the criteria for the hand.  Return a boolean indicating if the given
+            cards meet the hand criteria.
+
+            Intended to be overwritten by subclasses.
+        :param list[Card] cards:
+        :return: Boolean indicating if the card meets the hand's criteria
+        :rtype: bool
+        """
         raise NotImplementedError()
+
+    # @property
+    # def outs(self):
+    #     raise NotImplementedError()
+    #
+    # def calculate_odds(self, num_unseen_cards, remaining_community_cards):
+    #     if remaining_community_cards > 0:
+    #          raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards) ** remaining_community_cards
+    #     else:
+    #         raw = 1 - ((num_unseen_cards - self.outs) / num_unseen_cards)
+    #     self.odds = raw * 100
 
 
 class HighCard(WinningHand):
@@ -86,6 +101,13 @@ class Pair(WinningHand):
         return self.found
 
     def check_for_worth_matches(self, cards):
+        """
+            Utility function for checking for specific number of Cards' worth matches.  Checks the given cards to see if there
+            are N matches of cards with the same worth, where N is defined as the class attribute num_to_match.
+        :param list[Card] cards: list of Cards to check for worth matches.
+        :return: list of Cards that have matching worth where the len of the list is equal to the class attribute num_to_match.
+        :rtype: list[Card]
+        """
         matches_found = []
         card_values = [x.worth for x in cards]
         if len(set(card_values)) < len(cards):
@@ -94,8 +116,7 @@ class Pair(WinningHand):
                 if card_values.count(_c.worth) == self.num_to_match:
                     matches_found.append(_c)
 
-        single_pair = matches_found[:2]
-        return single_pair
+        return matches_found[:self.num_to_match]
 
 
 class TwoPair(Pair):
@@ -119,9 +140,9 @@ class TwoPair(Pair):
 
         return self.found
 
-    @property
-    def outs(self):
-        return 2
+    # @property
+    # def outs(self):
+    #     return 2
 
 
 class ThreeOfAKind(Pair):
@@ -144,9 +165,9 @@ class ThreeOfAKind(Pair):
 
         return self.found
 
-    @property
-    def outs(self):
-        return 3 - len(self.high_value)
+    # @property
+    # def outs(self):
+    #     return 3 - len(self.high_value)
 
 
 class Straight(WinningHand):
@@ -161,14 +182,19 @@ class Straight(WinningHand):
         if straight_found:
             sorted_cards = self.get_sorted_cards(cards)
             self.high_value = sorted_cards
-        else:
-            # new function to see how close we are to a straight
-            pass
+        # else:
+        #     # new function to see how close we are to a straight
+        #     pass
 
         return straight_found
 
     def check_for_straight(self, cards):
-        # todo: check for the many possible straight conditions that can be fullfilled if one is not found
+        """
+            Utility function used to check if a straight exists.
+        :param list[Card] cards: Cards to check for a straight
+        :return: boolean indicating if a straight was found
+        :rtype: bool
+        """
         sorted_cards = self.get_sorted_cards(cards)
         _prev_val = None
         _interval = 1
@@ -203,26 +229,32 @@ class Flush(WinningHand):
         return self.found
 
     def check_for_flush(self, cards):
+        """
+            Utility function used to check if a flush exists.
+        :param list[Card] cards: Cards to check for a flush
+        :return: boolean indicating if a flush was found
+        :rtype: bool
+        """
         flush_found = False
         card_suits = [x.suit for x in cards]
         if len(set(card_suits)) == 1:
             flush_found = True
-        else:
-            suit_map = {}
-            for _c in cards:
-                if _c.suit not in suit_map.keys():
-                    suit_map[_c.suit] = []
-                suit_map[_c.suit].append(_c)
-            four_card_suits = [suit for suit, cards in suit_map.items() if len(cards) == 4]
-            if four_card_suits:
-                self.close = True
-                self.num_matched = 4
-                self.high_value = suit_map[four_card_suits[0]]
-            three_card_suits = [suit for suit, matches in suit_map.items() if len(matches) == 3]
-            if three_card_suits:
-                self.close = True
-                self.num_matched = 3
-                self.high_value = suit_map[three_card_suits[0]]
+        # else:
+        #     suit_map = {}
+        #     for _c in cards:
+        #         if _c.suit not in suit_map.keys():
+        #             suit_map[_c.suit] = []
+        #         suit_map[_c.suit].append(_c)
+        #     four_card_suits = [suit for suit, cards in suit_map.items() if len(cards) == 4]
+        #     if four_card_suits:
+        #         self.close = True
+        #         self.num_matched = 4
+        #         self.high_value = suit_map[four_card_suits[0]]
+        #     three_card_suits = [suit for suit, matches in suit_map.items() if len(matches) == 3]
+        #     if three_card_suits:
+        #         self.close = True
+        #         self.num_matched = 3
+        #         self.high_value = suit_map[three_card_suits[0]]
 
         return flush_found
 
@@ -274,12 +306,12 @@ class StraightFlush(Flush, Straight):
         flush_cards = []
 
         flush_found = self.check_for_flush(cards)
-        if self.close:
-            flush_cards = deepcopy(self.high_value)
+        # if self.close:
+        #     flush_cards = deepcopy(self.high_value)
 
         straight_found = self.check_for_straight(cards)
-        if self.close:
-            straight_cards = deepcopy(self.high_value)
+        # if self.close:
+        #     straight_cards = deepcopy(self.high_value)
 
         if straight_found and flush_found:
             straight_flush_found = True
@@ -289,16 +321,16 @@ class StraightFlush(Flush, Straight):
                 self.ranking += 1
                 self.name = "Royal Flush"
 
-        else:
-            if straight_cards and flush_cards:
-                self.close = True
-                self.high_value = [x for x in straight_cards if x in flush_cards]
+        # else:
+        #     if straight_cards and flush_cards:
+        #         self.close = True
+        #         self.high_value = [x for x in straight_cards if x in flush_cards]
 
         return straight_flush_found
 
-    @property
-    def outs(self):
-        return 5 - len(self.high_value)
+    # @property
+    # def outs(self):
+    #     return 5 - len(self.high_value)
 
 
 # In order so once we can check if it's the best hand more efficiently
@@ -372,7 +404,13 @@ class Deck(object):
         return card
 
     def _find_card(self, worth, suit):
-        """"""
+        """
+            Get a specific card from the deck, if it exists.
+        :param int worth: Card's worth
+        :param str suit: Card's suit
+        :return: Card, if it was found, or None if not
+        :rtype: Card
+        """
         _card = None
         for _c in self.available_cards:
             if _c.suit[0].lower() == suit and _c.worth == worth:
@@ -391,27 +429,44 @@ class Deck(object):
         return len(self.available_cards)
 
     def get_player_card(self, card_str):
-        """"""
+        """
+            Find the Card based on the given card_str param and return it.
+        :param str card_str: string in the format of '<worth><suit>' where suit is 1 string character and worth is an int
+        :return: Card described in the card_str
+        :rtype: Card
+        """
         suit = card_str[-1]
         worth = int(card_str[:-1])
         return self._find_card(worth=worth, suit=suit)
 
     def set_community_card(self, card_str):
-        """"""
+        """
+            Set a community card based on a given card_str
+        :param str card_str: string in the format of '<worth><suit>' where suit is 1 string character and worth is an int
+        :return: N/A
+        """
         suit = card_str[-1]
         worth = int(card_str[:-1])
         self.community_cards.append(self._find_card(worth=worth, suit=suit))
-        return
 
     def deal_to_players(self, players, num_cards=2):
+        """
+            Deal to each of the provided players the specified number of cards.
+        :param list[Player] players: list of Players to be dealt cards.
+        :param int num_cards: number of cards to be dealt to each Player; default is 2
+        :return: N/A
+        """
         for i in range(num_cards):
             for _player in players:
                 _card = self._deal_card()
                 _player.add_card(_card)
                 self.dealt_cards.append(_card)
-        return
 
     def deal_flop(self):
+        """
+            Deal The Flop:  Burns one card and adds 3 cards to the community cards.
+        :return: N/A
+        """
         self._burn_card()
 
         for i in range(3):
@@ -419,12 +474,20 @@ class Deck(object):
             self.community_cards.append(_card)
 
     def deal_river(self):
+        """
+            Deal The River: Burns one card and adds 1 card to the community cards.
+        :return: N/A
+        """
         self._burn_card()
 
         _card = self._deal_card()
         self.community_cards.append(_card)
 
     def deal_turn(self):
+        """
+            Deal The Turn.  Burns one card and adds 1 card to the community cards.
+        :return: N/A
+        """
         self._burn_card()
 
         _card = self._deal_card()
@@ -433,7 +496,7 @@ class Deck(object):
     def _burn_card(self):
         """
             Dealer removes a card from play.  This is known as 'burning' a card.
-        :return:
+        :return: N/A
         """
         self.burnt_cards.append(self._deal_card())
 
@@ -450,9 +513,23 @@ class Player(object):
         self._possible_hands = []
 
     def add_card(self, card):
+        """
+            Adds a dealt Card to the Player's cards
+        :param card:
+        :return:
+        """
         self.cards.append(card)
 
     def get_card_combos(self, community_cards, num_cards=5):
+        """
+            Create a list of possible combinations of the community Cards, with num_cards
+            specifying how many cards are in each combination.  This number is subtracted from the number of Player
+            cards to use that number of Cards in each combination.
+        :param list[Card] community_cards: The community cards available to the Player
+        :param int num_cards: number of total cards in the hand; default is 5
+        :return: list of lists containing all possible card combinations
+        :rtype: list[list[Card]]
+        """
         available_community_spots = num_cards - len(self.cards)
         _community = deepcopy(community_cards)
         combos_raw = combinations(_community, available_community_spots)
@@ -460,6 +537,12 @@ class Player(object):
         return combos
 
     def check_cards_for_winning_hands(self, community_cards):
+        """
+            Check the given community cards against the Player's own cards to see if there are any winning hands or any
+            better winning hands if one was found previously.
+        :param list[Card] community_cards: list of community Cards available to the player
+        :return: N/A
+        """
         # Stats vars
         unseen = TOTAL_CARDS_IN_DECK - len(community_cards)
         remaining_community = 5 - len(community_cards)
@@ -494,8 +577,6 @@ class Player(object):
                 #         _hand.calculate_odds(num_unseen_cards=unseen,
                 #                              remaining_community_cards=remaining_community)
 
-        return
-
 
 class TexasHoldEm(object):
     def __init__(self, num_cards_per_player=2, num_players=6):
@@ -509,8 +590,17 @@ class TexasHoldEm(object):
         self.players = [*self.deal_players, self.user_player]
         self.dealer = self.players[0].player_id
 
-
     def run_monte_carlo(self, player_cards, community_cards=None, num_games=10000):
+        """
+            Run a Monte Carlo simulation to determine the statistics of the User's chances of winning given the User's
+            input cards and any Community cards, if they exist.  Return a string to print with the User's statistics
+            synopsis for this the simulation.
+        :param list[str] player_cards: list of card_str representing the User's cards
+        :param list[str] or None community_cards: list of card_str representing the existing Community Cards, if they exist
+        :param int num_games: Number of games to run in the simulation; default of 10,000.
+        :return: string containing a percentage of games the user one and the top hands from all of the wins.
+        :rtype: str
+        """
         player_wins = {}
         for __ in range(num_games):
             print(f"Running Game #{__}...")
@@ -531,7 +621,6 @@ class TexasHoldEm(object):
             self._end_hand()
 
         # Calculate stats
-        # TODO: average; winningest hand
         total_player_wins = sum(player_wins.values())
         player_win_average = total_player_wins / num_games
         sorted_win_counts = sorted(list(player_wins.values()))
@@ -541,18 +630,34 @@ class TexasHoldEm(object):
             for i in range(win_range):
                 wins.append(list(player_wins.keys())[list(player_wins.values()).index(sorted_win_counts[i])])
 
-
-        _msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{'\n\t'.join(wins)}"
+        _win_str = '\n\t'.join(wins)
+        _msg = f"Player wins {player_win_average * 100:.2f}% of the time.  Most victories are won by: \n\t{_win_str}"
         return _msg
 
     @property
     def community_cards(self):
+        """
+            QoL function to quickly return the game's Community cards.
+        :return: the list of Cards that the community has access too
+        :rtype: list[Card]
+        """
         return self.deck.community_cards
 
     def _make_players(self, num_players):
+        """
+            Utility function to quickly create new players given an input number of players.
+        :param int num_players: the number of players to create.
+        :return: list of created Players
+        :rtype: list[Player]
+        """
         return [Player(player_num=x) for x in range(num_players)]
 
     def _play_hand(self):
+        """
+            QoL function to represent playing a full hand of Texas Hold 'Em poker.
+        :return: Winner's player ID and the winning hand's name
+        :rtype: (int,str)
+        """
         self.deck.deal_to_players(self.deal_players)
         if len(self.community_cards) == 0:
             self.deck.deal_flop()
@@ -567,6 +672,13 @@ class TexasHoldEm(object):
         return leader.player_id, leader.best_hand.name
 
     def _end_hand(self):
+        """
+            QoL function to reset/clean up after each hand and get ready to play the next round of the simulation.
+            Clear the players cards and winning hands then create and shuffle a new deck.
+
+            Later we can add moving players through the list of players to be dealt appropriately to try and increase simulation realism.
+        :return: N/A
+        """
         # Clear players hands
         for player in self.players:
             player.best_hand = None
@@ -583,9 +695,13 @@ class TexasHoldEm(object):
 
         # Fresh deck and will be shuffled and have all cards in it
         self.deck = Deck()
-        return
 
     def _check_player_hands(self):
+        """
+            Utility function to have each Player check their own hands, then see if they have the best hand.
+        :return: Player with the best hand
+        :rtype: Player
+        """
         current_leader = None
         for _player in self.players:
             _player.check_cards_for_winning_hands(self.community_cards)
@@ -604,6 +720,10 @@ class TexasHoldEm(object):
 
 
 def test_monte_carlo():
+    """
+        Runs a series of tests to ensure the classes and functions are working appropriately.
+    :return: N/A
+    """
     # TODO: should test royal flush to ensure its 100% and only Straight Flush returned for wins.
     print("MONTE CARLO TEST!!!")
     holdem = TexasHoldEm(num_players=2)
@@ -625,6 +745,12 @@ def test_monte_carlo():
     print(_msg)
 
 def sanitize_card_string_input(card_string_input):
+    """
+        Utility function to sanitize the User input from the human-readable format to the format the Deck class expects.
+    :param str card_string_input:
+    :return: reformatted card_str
+    :rtype: str
+    """
     card_string = deepcopy(card_string_input.lower())
     if 'j' in card_string:
         card_string.replace('j', '11')
@@ -646,8 +772,11 @@ if __name__ == '__main__':
         test_monte_carlo()
         exit(0)
 
+    if num_players_input > 8:
+        print("Sorry but we only support up to 8 players right now.  Please choose again.")
+        exit(0)
+
     try:
-        # NEED: 1: Num Players (lim of 8); 2: Player's Cards; 3: Any Community Cards?
         while True:
             print(
                 "We need to know the cards you were dealt.  Please enter them in the format of <Card><Suit> with both being 1 character each.  So if you were dealt the 7 of Clubs and the Jack of Spades, those would be '7c' and 'Js' respectively.  ")
@@ -659,7 +788,7 @@ if __name__ == '__main__':
             print("If there are any community cards please enter them one by one; enter 'N' if done or None")
             comm_cards = []
             while True:
-                comm_card = input("Any Community Cards? ")
+                comm_card = input("Any Community Cards? Enter 'N' if done.")
                 if comm_card.lower() == 'n':
                     break
 
