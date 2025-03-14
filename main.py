@@ -503,14 +503,14 @@ class Deck(object):
 
 class Player(object):
 
-    def __init__(self, player_num):
+    def __init__(self, player_num, possible_hands):
         self.player_id = player_num
         self.cards = []
         self.best_hand = None
         self.odds = {}
 
         self._completed_hands = []
-        self._possible_hands = []
+        self._possible_hands = possible_hands
 
     def add_card(self, card):
         """
@@ -552,7 +552,7 @@ class Player(object):
 
         for _combo in community_combos:
             player_hand = _combo + player_cards
-            winning_hands = [x() for x in WINNING_HANDS]
+            winning_hands = [x() for x in self._possible_hands]
 
             for _hand in winning_hands:
                 completed = _hand.check_cards(player_hand)
@@ -579,14 +579,15 @@ class Player(object):
 
 
 class TexasHoldEm(object):
-    def __init__(self, num_cards_per_player=2, num_players=6):
+    def __init__(self, num_cards_per_player=2, num_players=6, winning_hands=WINNING_HANDS):
 
         self.num_cards_per_player = num_cards_per_player
         self.deck = Deck()
+        self.winning_hands = deepcopy(winning_hands)
 
         # Need to define starting player:
         self.deal_players = self._make_players(num_players=num_players - 1)
-        self.user_player = self.user_player = Player(player_num=num_players-1)
+        self.user_player = self.user_player = Player(player_num=num_players-1, possible_hands=self.winning_hands)
         self.players = [*self.deal_players, self.user_player]
         self.dealer = self.players[0].player_id
 
@@ -603,12 +604,11 @@ class TexasHoldEm(object):
         """
         player_wins = {}
         for __ in range(num_games):
-            print(f"Running Game #{__}...")
             if community_cards is not None:
-                for _ccs in community_cards:
+                for _ccs in deepcopy(community_cards):
                     self.deck.set_community_card(_ccs)
 
-            for _cs in player_cards:
+            for _cs in deepcopy(player_cards):
                 self.user_player.add_card(self.deck.get_player_card(_cs))
 
             winning_player, winning_hand = self._play_hand()
@@ -650,7 +650,7 @@ class TexasHoldEm(object):
         :return: list of created Players
         :rtype: list[Player]
         """
-        return [Player(player_num=x) for x in range(num_players)]
+        return [Player(player_num=x, possible_hands=self.winning_hands) for x in range(num_players)]
 
     def _play_hand(self):
         """
@@ -684,7 +684,6 @@ class TexasHoldEm(object):
             player.best_hand = None
             player.cards = []
             player._completed_hands = []
-            player._possible_hands = []
 
         # Get next dealer
         if self.dealer + 1 > len(self.players):
@@ -724,25 +723,156 @@ def test_monte_carlo():
         Runs a series of tests to ensure the classes and functions are working appropriately.
     :return: N/A
     """
-    # TODO: should test royal flush to ensure its 100% and only Straight Flush returned for wins.
-    print("MONTE CARLO TEST!!!")
-    holdem = TexasHoldEm(num_players=2)
+    print("MONTE CARLO TEST: BEGIN")
 
-    _pcs = ['14s', '8c', ]
-    # _ccs = ['13s', '13c', '8c']
-    _ccs = None
+    # Confirm that HighCard is found when running the simulation
+    print("High Card Test: Running...")
+    holdem_hc = TexasHoldEm(num_players=2, winning_hands=(HighCard, ))
+    hc_msg = holdem_hc.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '2s', '3s', '2h'],
+        num_games=10
+    )
+    print(f"High Card Test: {hc_msg}")
+    if "High Card" not in hc_msg:
+        print("High Card Test: Failed.  Hand Type missing.")
+    else:
+        print("High Card Test: Passed.")
+
+    # Confirm that a Pair is found
+    print("Pair Test: Running...")
+    holdem_p = TexasHoldEm(num_players=2, winning_hands=(Pair, HighCard))
+    p_msg = holdem_p.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '4s', '5s', '14h'],
+        num_games=10
+    )
+    print(f"Pair Test: {p_msg}")
+    if "Pair" not in p_msg:
+        print("Pair Test: Failed.  Hand Type missing.")
+    else:
+        print("Pair Test: Passed.")
+
+    # Confirm that TwoPair is found
+    print("Two Pair Test: Running...")
+    holdem_tp = TexasHoldEm(num_players=2, winning_hands=(TwoPair,))
+    tp_msg = holdem_tp.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '2s', '3s', '2h'],
+        num_games=10
+    )
+    print(f"Two Pair Test: {tp_msg}")
+    if "Two Pair" not in tp_msg:
+        print("Two Pair Test: Failed.  Hand Type missing.")
+    else:
+        print("Two Pair Test: Passed.")
+
+    # Confirm that Three of a Kind is found
+    print("Three of a Kind Test: Running...")
+    holdem_tk = TexasHoldEm(num_players=2, winning_hands=(ThreeOfAKind,))
+    tk_msg = holdem_tk.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '2s', '14d', '14h'],
+        num_games=10
+    )
+    print(f"Three of a Kind Test: {tk_msg}")
+    if "Three of a Kind" not in tk_msg:
+        print("Three of a Kind Test: Failed.  Hand Type missing.")
+    else:
+        print("Three of a Kind Test: Passed.")
+
+    # Confirm that a Straight is found
+    print("Straight Test: Running...")
+    holdem_s = TexasHoldEm(num_players=2, winning_hands=(Straight,))
+    s_msg = holdem_s.run_monte_carlo(
+        player_cards=['14s', '13c'],
+        community_cards=['12c', '11c', '10s', '3s', '2h'],
+        num_games=10
+    )
+    print(f"Straight Test: {s_msg}")
+    if "Straight" not in s_msg:
+        print("Straight Test: Failed.  Hand Type missing.")
+    else:
+        print("Straight Test: Passed.")
+
+    # Confirm that a Flush is found
+    print("Flush Test: Running...")
+    holdem_f = TexasHoldEm(num_players=2, winning_hands=(Flush,))
+    f_msg = holdem_f.run_monte_carlo(
+        player_cards=['14s', '13s'],
+        community_cards=['2s', '3s', '2h', '9s', '3h'],
+        num_games=10
+    )
+    print(f"Flush Test: {f_msg}")
+    if "Flush" not in f_msg:
+        print("Flush Test: Failed.  Hand Type missing.")
+    else:
+        print("Flush Test: Passed.")
+
+    # Confirm that Full House is found
+    print("Full House Test: Running...")
+    holdem_fh = TexasHoldEm(num_players=2, winning_hands=(FullHouse,))
+    fh_msg = holdem_fh.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '2s', '3s', '2h'],
+        num_games=100
+    )
+    print(f"Full House Test: {fh_msg}")
+    if "Full House" not in fh_msg:
+        print("Full House Test: Failed.  Hand Type missing.")
+    else:
+        print("Full House Test: Passed.")
+
+    # Confirm that FourOfAKind is found
+    print("Four of a Kind Test: Running...")
+    holdem_fk = TexasHoldEm(num_players=2, winning_hands=(FourOfAKind,))
+    fk_msg = holdem_fk.run_monte_carlo(
+        player_cards=['14s', '14c'],
+        community_cards=['2c', '3c', '2s', '14d', '14h'],
+        num_games=1000
+    )
+    print(f"Four of a Kind Test: {fk_msg}")
+    if "Four of a Kind" not in fk_msg:
+        print("Four of a Kind Test: Failed.  Hand Type missing.")
+    elif "100.00%" not in fk_msg:
+        print("Four of a Kind Test: Failed.  Incorrect calculations somewhere.")
+    else:
+        print("Four of a Kind Test: Passed.")
+
+    # Confirm that StraightFlush is found
+    print("Straight Flush Test: Running...")
+    holdem_sf = TexasHoldEm(num_players=2, winning_hands=(StraightFlush,))
+    sf_msg = holdem_sf.run_monte_carlo(
+        player_cards=['13s', '12s'],
+        community_cards=['11s', '10s', '9s', '14c', '14h'],
+        num_games=1000
+    )
+    print(f"Straight Flush Test: {sf_msg}")
+    if "Straight Flush" not in sf_msg:
+        print("Straight Flush Test: Failed.  Hand Type missing.")
+    elif "100.00%" not in fk_msg:
+        print("Straight Flush Test: Failed.  Incorrect calculations somewhere.")
+    else:
+        print("Straight Flush Test: Passed.")
 
     # Confirm that when a Royal Flush is guaranteed the correct words appear in the returned message.
-    # _pcs = ['14s', '13s']
-    # _ccs = ['12s', '11s', '10s', ]
-    _msg = holdem.run_monte_carlo(player_cards=_pcs, community_cards=_ccs)
-    if not "100.00%" in _msg:
-        print("Royal Flush Test:  Failed. Incorrect calculations somewhere")
-    elif not "Royal Flush" in _msg:
-        print("Royal Flush Test:  Failed. Hand Type missing")
+    print("Royal Flush Test: Running...")
+    holdem_rf = TexasHoldEm(num_players=2)
+    rf_msg = holdem_rf.run_monte_carlo(
+        player_cards=['14s', '13s'],
+        community_cards=['12s', '11s', '10s', ],
+        num_games=1000
+    )
+    print(f"Royal Flush Test: {rf_msg}")
+    if "100.00%" not in rf_msg:
+        print("Royal Flush Test:  Failed. Incorrect calculations somewhere.")
+    elif "Royal Flush" not in rf_msg:
+        print("Royal Flush Test:  Failed. Hand Type missing.")
     else:
         print("Royal Flush Test:  Passed")
-    print(_msg)
+
+    print("MONTE CARLO TEST: FINISHED")
+
 
 def sanitize_card_string_input(card_string_input):
     """
@@ -803,7 +933,6 @@ if __name__ == '__main__':
             # Ask to play again
             if play_again.lower() != 'Y':
                 raise EndGame("blah blah")
-
 
     except EndGame:
         print("Thanks for stopping by! Goodbye")
